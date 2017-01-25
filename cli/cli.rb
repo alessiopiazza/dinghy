@@ -136,7 +136,9 @@ class DinghyCLI < Thor
     fsevents.halt
     puts "Stopping the #{machine.name} VM..."
     machine.halt
-    unfs.halt
+    if (!fsevents_disabled?)
+      unfs.halt
+    end
   end
 
   map "down" => :halt
