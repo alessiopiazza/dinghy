@@ -2,6 +2,7 @@ require 'stringio'
 
 require 'dinghy/machine'
 require 'dinghy/constants'
+require 'dinghy/preferences'
 
 class HttpProxy
   CONTAINER_NAME = "dinghy_http_proxy"
@@ -41,8 +42,17 @@ class HttpProxy
       "--name", CONTAINER_NAME, IMAGE_NAME)
   end
 
+  def preferences
+    @preferences ||= Preferences.load
+  end
+
+  def proxy_disabled?
+    preferences[:proxy_disabled] == true
+  end
+
   def status
     return "stopped" if !machine.running?
+    return "disabled" if proxy_disabled?
 
     output, _ = System.capture_output do
       docker.system("inspect", "-f", "{{ .State.Running }}", CONTAINER_NAME)

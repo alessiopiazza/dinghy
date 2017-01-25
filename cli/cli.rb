@@ -67,6 +67,9 @@ class DinghyCLI < Thor
   option :fsevents,
     type: :boolean,
     desc: "start the FS event forwarder"
+  option :unfs,
+    type: :boolean,
+    desc: "start the NFS (unfsd) server"
   desc "up", "start the Docker VM and services"
   def up
     vm_must_exist!
@@ -90,12 +93,23 @@ class DinghyCLI < Thor
   desc "status", "get VM and services status"
   def status
     puts "   VM: #{machine.status}"
-    puts "  NFS: #{unfs.status}"
-    puts " FSEV: #{fsevents.status}"
+    daemons_enabled = []
+    if (!unfs_disabled?)
+      puts "  NFS: #{unfs.status}"
+      daemons_enabled << unfs
+    else
+      puts "  NFS: disabled"
+    end
+    if (!fsevents_disabled?)
+      puts " FSEV: #{fsevents.status}"
+      daemons_enabled << fsevents
+    else
+      puts " FSEV: disabled"
+    end
     puts "  DNS: #{http_proxy.status}"
     puts "PROXY: #{http_proxy.http_status}"
     return unless machine.status == 'running'
-    [unfs, fsevents].each do |daemon|
+    daemons_enabled.each do |daemon|
       if !daemon.running?
         puts "\n\e[33m#{daemon.name} failed to run\e[0m"
         puts "details available in log file: #{daemon.logfile}"
@@ -188,6 +202,10 @@ class DinghyCLI < Thor
     preferences[:fsevents_disabled] == true
   end
 
+  def unfs_disabled?
+    preferences[:unfs_disabled] == true
+  end
+
   def machine
     @machine ||= Machine.new(preferences[:machine_name])
   end
@@ -206,11 +224,14 @@ class DinghyCLI < Thor
 
   def start_services
     machine.up
-    unfs.up(preferences[:custom_nfs_export_options])
-    if unfs.wait_for_unfs
-      machine.mount(unfs)
-    else
-      puts "NFS mounting failed"
+    use_unfs = options[:unfs] || (options[:unfs].nil? && !unfs_disabled?)
+    if (use_unfs)
+      unfs.up(preferences[:custom_nfs_export_options])
+      if unfs.wait_for_unfs
+        machine.mount(unfs)
+      else
+        puts "NFS mounting failed"
+      end
     end
     use_fsevents = options[:fsevents] || (options[:fsevents].nil? && !fsevents_disabled?)
     if use_fsevents
@@ -220,7 +241,9 @@ class DinghyCLI < Thor
     # this is hokey, but it can take a few seconds for docker daemon to be available
     # TODO: poll in a loop until the docker daemon responds
     sleep 5
-    http_proxy.up(expose_proxy: !!proxy)
+    if proxy
+      http_proxy.up(expose_proxy: !!proxy)
+    end
 
     preferences.update(
       proxy_disabled: !proxy,
