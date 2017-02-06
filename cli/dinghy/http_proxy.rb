@@ -2,7 +2,6 @@ require 'stringio'
 
 require 'dinghy/machine'
 require 'dinghy/constants'
-require 'dinghy/preferences'
 
 class HttpProxy
   CONTAINER_NAME = "dinghy_http_proxy"

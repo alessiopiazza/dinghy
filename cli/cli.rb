@@ -136,7 +136,7 @@ class DinghyCLI < Thor
     fsevents.halt
     puts "Stopping the #{machine.name} VM..."
     machine.halt
-    if (!fsevents_disabled?)
+    if (!unfs_disabled?)
       unfs.halt
     end
   end
@@ -243,9 +243,7 @@ class DinghyCLI < Thor
     # this is hokey, but it can take a few seconds for docker daemon to be available
     # TODO: poll in a loop until the docker daemon responds
     sleep 5
-    if proxy
-      http_proxy.up(expose_proxy: !!proxy)
-    end
+    http_proxy.up(expose_proxy: !!proxy)
 
     preferences.update(
       proxy_disabled: !proxy,
